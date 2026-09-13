@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+*.db
+data/nexusops_audit.db
+.vscode/
+.idea/
+nexus-wheels/
+nexus-wheels-312/
