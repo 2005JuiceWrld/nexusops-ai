@@ -213,7 +213,16 @@ TOOL_REGISTRY = {
     "get_production_policy": get_production_policy,
     "calculate_metrics": calculate_metrics,
     "restart_service": restart_service,
+    # MCP Aliases
+    "incident.search": search_incidents,
+    "deployment.recent": get_recent_deployments,
+    "service.status": get_service_status,
+    "service.restart": restart_service,
+    "runbook.retrieve": retrieve_runbook,
+    "metrics.calculate": calculate_metrics,
+    "approval.check": get_production_policy,
 }
+
 
 
 if __name__ == "__main__":

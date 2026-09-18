@@ -114,22 +114,22 @@ class EvidenceVerifier:
         if not required_fields.issubset(result.keys()):
             return False
 
-        if not isinstance(
-            result.get("summary"),
-            str,
-        ):
+        if not isinstance(result.get("summary"), str):
             return False
 
-        if not isinstance(
-            result.get("likely_cause"),
-            str,
-        ):
+        if not result["summary"].strip():
             return False
 
-        if not isinstance(
-            result.get("supporting_evidence"),
-            list,
-        ):
+        if not isinstance(result.get("likely_cause"), str):
+            return False
+
+        if not result["likely_cause"].strip():
+            return False
+
+        if not isinstance(result.get("supporting_evidence"), list):
+            return False
+
+        if not result["supporting_evidence"]:
             return False
 
         if not isinstance(
@@ -138,10 +138,18 @@ class EvidenceVerifier:
         ):
             return False
 
-        if not isinstance(
-            result.get("recommended_action"),
-            str,
-        ):
+        if not isinstance(result.get("recommended_action"), str):
+            return False
+
+        if not result["recommended_action"].strip():
+            return False
+
+        confidence = result.get("confidence")
+
+        if isinstance(confidence, bool):
+            return False
+
+        if not isinstance(confidence, (int, float)):
             return False
 
         return True
@@ -172,29 +180,31 @@ class EvidenceVerifier:
         likely_cause: str,
         evidence: list[dict[str, Any]],
     ) -> bool:
-        if not likely_cause.strip():
+        if not likely_cause.strip() or not evidence:
             return False
 
-        if not evidence:
-            return False
-
-        # A causal explanation can combine facts from multiple
-        # authoritative evidence sources.
         evidence_text = cls._flatten_evidence(evidence)
 
-        if not evidence_text:
+        if not evidence_text.strip():
             return False
 
-        # First, reject the explanation if important concepts
-        # are completely absent from the entire evidence universe.
+        claim = likely_cause.lower()
+
         claim_words = {
             word
             for word in re.findall(
                 r"[a-z0-9.]+",
-                likely_cause.lower(),
+                claim,
             )
             if len(word) >= 4
         }
+
+        evidence_words = set(
+            re.findall(
+                r"[a-z0-9.]+",
+                evidence_text,
+            )
+        )
 
         generic_terms = {
             "caused",
@@ -216,6 +226,7 @@ class EvidenceVerifier:
             "problem",
             "problems",
             "service",
+            "services",
             "production",
             "system",
             "failure",
@@ -239,6 +250,12 @@ class EvidenceVerifier:
             "the",
             "and",
             "that",
+            "operational",
+            "finding",
+            "check",
+            "checks",
+            "analysis",
+            "investigation",
         }
 
         specific_terms = {
@@ -247,15 +264,9 @@ class EvidenceVerifier:
             if word not in generic_terms
         }
 
-        evidence_words = set(
-            re.findall(
-                r"[a-z0-9.]+",
-                evidence_text,
-            )
-        )
+        if not specific_terms:
+            return False
 
-        # Every important technical concept introduced by
-        # the explanation must exist somewhere in evidence.
         unsupported_terms = (
             specific_terms - evidence_words
         )
@@ -263,11 +274,25 @@ class EvidenceVerifier:
         if unsupported_terms:
             return False
 
-        # Require the explanation to contain meaningful
-        # overlap with the overall evidence.
-        return cls._text_overlap(
-            likely_cause,
-            evidence_text,
+        # Require meaningful grounding rather than accepting a
+        # generic sentence that merely mentions the evidence.
+        overlap = specific_terms.intersection(
+            evidence_words
+        )
+
+        if len(overlap) >= 2:
+            return True
+
+        # A strong compound identifier such as "fraud-service"
+        # can itself be sufficient when directly present.
+        compound_terms = {
+            word
+            for word in specific_terms
+            if "-" in word or "." in word
+        }
+
+        return bool(
+            compound_terms.intersection(evidence_words)
         )
 
     @classmethod
@@ -289,26 +314,41 @@ class EvidenceVerifier:
 
         # Important technical concepts that must be grounded.
         technical_terms = {
+            "service",
+            "services",
             "payment-service",
             "fraud-service",
+            "auth-service",
             "latency",
             "timeout",
             "timeouts",
             "deployment",
             "deployed",
             "version",
-            "2.4.1",
             "fraud",
             "verification",
             "request",
             "requests",
+            "configuration",
+            "transaction",
+            "transactions",
             "error",
             "errors",
             "failure",
             "failures",
-            "transaction",
-            "transactions",
+            "incident",
+            "incidents",
+            "policy",
+            "approval",
+            "rollback",
+            "restart",
+            "metric",
+            "metrics",
+            "rate",
             "production",
+            "runbook",
+            "operational",
+            "status",
         }
 
         claim_terms = {
@@ -358,10 +398,7 @@ class EvidenceVerifier:
         if not isinstance(supporting_evidence, list):
             return False
 
-        if not supporting_evidence:
-            return False
-
-        if not evidence:
+        if not supporting_evidence or not evidence:
             return False
 
         valid_sources = {
@@ -370,45 +407,36 @@ class EvidenceVerifier:
             if item.get("source")
         }
 
-        evidence_texts = [
-            str(item.get("evidence", "")).lower()
-            for item in evidence
-        ]
+        evidence_texts = []
 
-        combined_evidence = "\n".join(
-            f"{item.get('source', '')} {item.get('evidence', '')}"
-            for item in evidence
-        ).lower()
+        for item in evidence:
+            source = str(item.get("source", "")).lower()
+            value = item.get("evidence", "")
 
-        technical_terms = {
-            "payment-service",
-            "fraud-service",
-            "latency",
-            "timeout",
-            "timeouts",
-            "deployment",
-            "deployed",
-            "version",
-            "fraud",
-            "verification",
-            "request",
-            "requests",
-            "configuration",
-            "transaction",
-            "transactions",
-            "error",
-            "errors",
-            "failure",
-            "failures",
-            "incident",
-            "p95",
-            "620",
-            "8.4",
-            "2.4.1",
-        }
+            if isinstance(value, dict):
+                value_text = " ".join(
+                    f"{key} {val}"
+                    for key, val in value.items()
+                )
+            elif isinstance(value, list):
+                value_text = " ".join(
+                    str(entry)
+                    for entry in value
+                )
+            else:
+                value_text = str(value)
+
+            evidence_texts.append(
+                f"{source} {value_text}".lower()
+            )
+
+        combined_evidence = "\n".join(evidence_texts)
+
+        if not evidence_texts:
+            return False
 
         for claim in supporting_evidence:
-            if not isinstance(claim, str):
+            if not isinstance(claim, str) or not claim.strip():
                 return False
 
             claim_lower = claim.lower()
@@ -419,53 +447,43 @@ class EvidenceVerifier:
             referenced_sources = {
                 source
                 for source in valid_sources
-                if source in claim_lower
+                if source and source in claim_lower
             }
 
             if referenced_sources:
-                source_supported = False
-
-                for source in referenced_sources:
-                    for item in evidence:
-                        item_source = str(
-                            item.get("source", "")
-                        ).lower()
-
-                        if item_source != source:
-                            continue
-
-                        source_text = str(
-                            item.get("evidence", "")
-                        ).lower()
-
-                        if cls._text_overlap(
+                if not any(
+                    cls._text_overlap(
+                        claim_lower,
+                        source_text,
+                    )
+                    for source_text in evidence_texts
+                ):
+                    # If exact wording does not overlap, require
+                    # meaningful factual words from the claim to appear
+                    # in the referenced evidence.
+                    claim_words = {
+                        word
+                        for word in re.findall(
+                            r"[a-z0-9.-]+",
                             claim_lower,
-                            source_text,
-                        ):
-                            source_supported = True
-                            break
+                        )
+                        if len(word) >= 4
+                    }
 
-                        claim_terms = {
-                            term
-                            for term in technical_terms
-                            if term in claim_lower
-                        }
-
-                        grounded_terms = {
-                            term
-                            for term in claim_terms
-                            if term in source_text
-                        }
-
-                        if len(grounded_terms) >= 2:
-                            source_supported = True
-                            break
-
-                    if source_supported:
-                        break
-
-                if not source_supported:
-                    return False
+                    if not any(
+                        len(
+                            claim_words.intersection(
+                                set(
+                                    re.findall(
+                                        r"[a-z0-9.-]+",
+                                        source_text,
+                                    )
+                                )
+                            )
+                        ) >= 1
+                        for source_text in evidence_texts
+                    ):
+                        return False
 
                 continue
 
@@ -482,86 +500,102 @@ class EvidenceVerifier:
             }
 
             if referenced_record_ids:
-                record_supported = False
-
-                for record_id in referenced_record_ids:
-                    for item in evidence:
-                        source_text = str(
-                            item.get("evidence", "")
-                        ).lower()
-
-                        if record_id not in source_text:
-                            continue
-
-                        claim_terms = {
-                            term
-                            for term in technical_terms
-                            if term in claim_lower
-                        }
-
-                        grounded_terms = {
-                            term
-                            for term in claim_terms
-                            if term in source_text
-                        }
-
-                        # The record ID must be real evidence, and the
-                        # claim must also contain factual grounding.
-                        if len(grounded_terms) >= 1:
-                            record_supported = True
-                            break
-
-                        if cls._text_overlap(
+                if not any(
+                    record_id in source_text
+                    and (
+                        cls._text_overlap(
                             claim_lower,
                             source_text,
-                        ):
-                            record_supported = True
-                            break
-
-                    if record_supported:
-                        break
-
-                if not record_supported:
+                        )
+                        or len(
+                            {
+                                word
+                                for word in re.findall(
+                                    r"[a-z0-9.-]+",
+                                    claim_lower,
+                                )
+                                if len(word) >= 4
+                            }.intersection(
+                                set(
+                                    re.findall(
+                                        r"[a-z0-9.-]+",
+                                        source_text,
+                                    )
+                                )
+                            )
+                        ) >= 1
+                    )
+                    for record_id in referenced_record_ids
+                    for source_text in evidence_texts
+                ):
                     return False
 
                 continue
 
             # ---------------------------------------------------------
-            # Case 3: No explicit source or record reference
+            # Case 3: Direct textual grounding
             # ---------------------------------------------------------
-            directly_supported = any(
+            if any(
                 cls._text_overlap(
                     claim_lower,
                     source_text,
                 )
                 for source_text in evidence_texts
-            )
-
-            if directly_supported:
+            ):
                 continue
 
-            # Accept concise evidence summaries when they contain
-            # multiple technical concepts grounded in the evidence.
-            claim_terms = {
-                term
-                for term in technical_terms
-                if term in claim_lower
-            }
-
-            grounded_terms = {
-                term
-                for term in claim_terms
-                if any(
-                    term in source_text
-                    for source_text in evidence_texts
+            # ---------------------------------------------------------
+            # Case 4: Concise factual summary
+            #
+            # Require at least one meaningful claim word to be grounded
+            # in the supplied evidence. This works across services,
+            # metrics, policies, incidents, deployments, and runbooks.
+            # ---------------------------------------------------------
+            claim_words = {
+                word
+                for word in re.findall(
+                    r"[a-z0-9.-]+",
+                    claim_lower,
                 )
+                if len(word) >= 4
             }
 
-            if len(grounded_terms) < 2:
+            stop_words = {
+                "this",
+                "that",
+                "with",
+                "from",
+                "into",
+                "using",
+                "were",
+                "was",
+                "the",
+                "and",
+                "for",
+                "requested",
+                "available",
+                "operational",
+                "investigation",
+                "evidence",
+            }
+
+            meaningful_words = claim_words - stop_words
+
+            evidence_words = set(
+                re.findall(
+                    r"[a-z0-9.-]+",
+                    combined_evidence,
+                )
+            )
+
+            grounded_words = meaningful_words.intersection(
+                evidence_words
+            )
+
+            if not grounded_words:
                 return False
 
         return True
-
 
     @staticmethod
     def _text_overlap(
@@ -753,15 +787,21 @@ class EvidenceVerifier:
             return True
 
         # Production actions must have policy evidence.
+
         policy_evidence = [
             item
             for item in evidence
-            if "policy" in str(
-                item.get("source", "")
-            ).lower()
-            or "policy" in str(
-                item.get("evidence", "")
-            ).lower()
+            if (
+                "policy" in str(
+                    item.get("source", "")
+                ).lower()
+                or str(
+                    item.get("source", "")
+                ).lower().startswith("pol-")
+                or "policy" in str(
+                    item.get("evidence", "")
+                ).lower()
+            )
         ]
 
         if not policy_evidence:

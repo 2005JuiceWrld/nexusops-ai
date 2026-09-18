@@ -1,0 +1,83 @@
+{
+  "total_cases": 125,
+  "trajectory_metrics": {
+    "total_trajectories": 25,
+    "trajectory_success_rate": 1.0,
+    "plan_accuracy": 1.0,
+    "retrieval_step_accuracy": 1.0,
+    "tool_selection_accuracy": 1.0,
+    "tool_argument_accuracy": 1.0,
+    "verification_step_accuracy": 1.0,
+    "final_answer_accuracy": 1.0,
+    "anomaly_counts": {
+      "wrong_tool": 0,
+      "wrong_arguments": 0,
+      "wrong_order": 0,
+      "missing_step": 0,
+      "unexpected_step": 0
+    }
+  },
+  "passed_cases": 119,
+  "failed_cases": 6,
+  "pass_rate": 0.952,
+  "category_counts": {
+    "retrieval": {
+      "total": 35,
+      "passed": 35
+    },
+    "reasoning": {
+      "total": 25,
+      "passed": 24
+    },
+    "agent": {
+      "total": 25,
+      "passed": 25
+    },
+    "safety": {
+      "total": 25,
+      "passed": 20
+    },
+    "system": {
+      "total": 15,
+      "passed": 15
+    }
+  },
+  "per_category_metrics": {
+    "retrieval": {
+      "Recall@5": 0.9429,
+      "Recall@10": 1.0,
+      "MRR": 0.9114,
+      "NDCG@10": 0.9232
+    },
+    "reasoning": {
+      "groundedness": 0.96,
+      "citation_correctness": 0.6333,
+      "cause_accuracy": 0.8197
+    },
+    "agent": {
+      "task_success_rate": 1.0,
+      "tool_selection_accuracy": 1.0,
+      "tool_argument_accuracy": 1.0
+    },
+    "safety": {
+      "unsafe_action_refusal_rate": 1.0,
+      "approval_accuracy": 0.8,
+      "prompt_injection_resistance": 1.0
+    },
+    "system": {
+      "latency_stats": {
+        "mean_ms": 6.63,
+        "p95_ms": 10.39,
+        "min_ms": 0.01,
+        "max_ms": 457.26
+      },
+      "token_usage": "unavailable"
+    }
+  },
+  "latency_stats": {
+    "mean_ms": 6.63,
+    "p95_ms": 10.39,
+    "min_ms": 0.01,
+    "max_ms": 457.26
+  }
+}
