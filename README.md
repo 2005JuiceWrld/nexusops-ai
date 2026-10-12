@@ -406,32 +406,3 @@ FastAPI
 production-oriented AI architecture
 Portfolio Position
 
-NexusOps AI is the AI Engineering / Agentic AI flagship of the portfolio.
-
-The three-project portfolio covers:
-
-Project 1
-NexusOps AI
-AI Reasoning + Agents + RAG + Safety
-
-Project 2
-Personalization / Search / Ranking Engine
-Retrieval + Recommendation + Ranking + Streaming ML
-
-Project 3
-Multimodal Edge Vision & Video Intelligence
-Computer Vision + Video + Edge Inference
-
-Together they demonstrate breadth across:
-
-Data Science
-Machine Learning
-AI Engineering
-LLM Systems
-Retrieval
-Recommendation
-Computer Vision
-Production Engineering
-Evaluation
-Safety
-
